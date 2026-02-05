@@ -1,6 +1,11 @@
 // State
 let items = [];
 let logs = [];
+let currentStatsDate = new Date();
+let longPressTimer;
+let isLongPress = false;
+let editingItemId = null;
+let editingDate = null;
 
 // DOM Elements
 const gridContainer = document.getElementById('grid-container');
@@ -16,6 +21,23 @@ const statsModal = document.getElementById('stats-modal');
 const closeStatsBtn = document.getElementById('close-stats');
 const statsList = document.getElementById('stats-list');
 const currentDateEl = document.getElementById('current-date');
+const prevDayBtn = document.getElementById('prev-day');
+const nextDayBtn = document.getElementById('next-day');
+const statsViewMain = document.getElementById('stats-view-main');
+const statsViewDetail = document.getElementById('stats-view-detail');
+const detailItemName = document.getElementById('detail-item-name');
+const trendChart = document.getElementById('trend-chart');
+const backToStatsBtn = document.getElementById('back-to-stats');
+
+// Edit Modal Elements
+const editModal = document.getElementById('edit-modal');
+const editItemName = document.getElementById('edit-item-name');
+const editCountValue = document.getElementById('edit-count-value');
+const decreaseCountBtn = document.getElementById('decrease-count');
+const increaseCountBtn = document.getElementById('increase-count');
+const cancelEditBtn = document.getElementById('cancel-edit');
+const saveEditBtn = document.getElementById('save-edit');
+
 
 // Selected Color State
 let selectedColor = 'linear-gradient(135deg, #FF6B6B, #EE5253)'; // default
@@ -67,15 +89,54 @@ function setupEventListeners() {
     confirmAddBtn.addEventListener('click', addItem);
 
     // Stats
-    statsBtn.addEventListener('click', showStats);
+    statsBtn.addEventListener('click', () => {
+        currentStatsDate = new Date(); // Reset to today
+        showStats();
+    });
     closeStatsBtn.addEventListener('click', () => {
         statsModal.classList.add('hidden');
+        statsViewMain.classList.remove('hidden');
+        statsViewDetail.classList.add('hidden');
     });
+
+    // Date Navigation
+    prevDayBtn.addEventListener('click', () => {
+        currentStatsDate.setDate(currentStatsDate.getDate() - 1);
+        showStats();
+    });
+    nextDayBtn.addEventListener('click', () => {
+        currentStatsDate.setDate(currentStatsDate.getDate() + 1);
+        showStats();
+    });
+
+    // Detail View Navigation
+    backToStatsBtn.addEventListener('click', () => {
+        statsViewDetail.classList.add('hidden');
+        statsViewMain.classList.remove('hidden');
+    });
+
+    // Edit Modal Buttons
+    cancelEditBtn.addEventListener('click', () => {
+        editModal.classList.add('hidden');
+    });
+
+    decreaseCountBtn.addEventListener('click', () => {
+        let val = parseInt(editCountValue.textContent);
+        if (val > 0) editCountValue.textContent = val - 1;
+    });
+
+    increaseCountBtn.addEventListener('click', () => {
+        let val = parseInt(editCountValue.textContent);
+        editCountValue.textContent = val + 1;
+    });
+
+    saveEditBtn.addEventListener('click', saveEditCount);
 
     // Close modals on outside click
     window.addEventListener('click', (e) => {
         if (e.target === addModal) addModal.classList.add('hidden');
         if (e.target === statsModal) statsModal.classList.add('hidden');
+        if (e.target === editModal) editModal.classList.add('hidden');
     });
 }
 
@@ -97,6 +158,8 @@ function addItem() {
 }
 
 function track(id, event) {
+    if (isLongPress) return; // Prevent track after long press
+
     logs.push({
         itemId: id,
         timestamp: Date.now()
@@ -110,6 +173,89 @@ function track(id, event) {
 
     render(); // Update counts
 }
+
+// Long Press Handling
+function handleTouchStart(id) {
+    isLongPress = false;
+    longPressTimer = setTimeout(() => {
+        isLongPress = true;
+        openEditModal(id);
+        navigator.vibrate(50); // Haptic feedback
+    }, 800); // 800ms for long press
+}
+
+function handleTouchEnd() {
+    clearTimeout(longPressTimer);
+}
+
+function openEditModal(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    editingItemId = id;
+    editingDate = new Date(); // Default edit for today
+
+    const count = getCountForDate(id, editingDate);
+
+    editItemName.textContent = `${item.name} (今日)`;
+    editCountValue.textContent = count;
+
+    editModal.classList.remove('hidden');
+}
+
+function saveEditCount() {
+    if (!editingItemId) return;
+
+    const targetCount = parseInt(editCountValue.textContent);
+    const itemLogs = logs.filter(log => log.itemId === editingItemId);
+    const dayStart = new Date(editingDate.getFullYear(), editingDate.getMonth(), editingDate.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+
+    const todayLogs = itemLogs.filter(log => log.timestamp >= dayStart && log.timestamp < dayEnd);
+    const currentCount = todayLogs.length;
+
+    if (targetCount > currentCount) {
+        // Add logs
+        for (let i = 0; i < targetCount - currentCount; i++) {
+            logs.push({
+                itemId: editingItemId,
+                timestamp: dayStart + 43200000 // Noon of that day
+            });
+        }
+    } else if (targetCount < currentCount) {
+        // Remove logs
+        let toRemove = currentCount - targetCount;
+        // Identify logs to remove (newest first for that day)
+        const sortedTodayLogs = todayLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+        // Filter out the logs we want to keep
+        logs = logs.filter(log => {
+            // If log is one of the ones to remove, skip it
+            if (log.itemId === editingItemId && log.timestamp >= dayStart && log.timestamp < dayEnd) {
+                if (toRemove > 0) {
+                    // Check if this specific log instance is in our remove list
+                    // A simple way is to just keep N logs for this day
+                    return false; // This logic is tricky with filter. Re-approach:
+                }
+            }
+            return true;
+        });
+
+        // Easier approach: Remove ALL logs for that day, then add back `targetCount` logs
+        logs = logs.filter(log => !(log.itemId === editingItemId && log.timestamp >= dayStart && log.timestamp < dayEnd));
+        for (let i = 0; i < targetCount; i++) {
+            logs.push({
+                itemId: editingItemId,
+                timestamp: dayStart + 43200000
+            });
+        }
+    }
+
+    saveData();
+    render();
+    editModal.classList.add('hidden');
+}
+
 
 function createRipple(event) {
     const card = event.currentTarget;
@@ -131,18 +277,16 @@ function createRipple(event) {
     }, 600);
 }
 
-function getTodayCount(itemId) {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+function getCountForDate(itemId, date) {
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const endOfDay = startOfDay + 86400000;
 
     return logs.filter(log =>
-        log.itemId === itemId && log.timestamp >= startOfDay
+        log.itemId === itemId && log.timestamp >= startOfDay && log.timestamp < endOfDay
     ).length;
 }
 
 function render() {
-    // Clear grid but keep add button
-    // Actually, easier to clear all and rebuild
     gridContainer.innerHTML = '';
 
     items.forEach(item => {
@@ -150,25 +294,31 @@ function render() {
         card.className = 'habit-card';
         card.style.background = item.color;
 
-        const count = getTodayCount(item.id);
+        const count = getCountForDate(item.id, new Date());
 
         card.innerHTML = `
             <div class="habit-name">${item.name}</div>
             <div class="habit-count">${count}</div>
         `;
 
+        // Touch events for long press
+        card.addEventListener('mousedown', () => handleTouchStart(item.id));
+        card.addEventListener('touchstart', () => handleTouchStart(item.id), { passive: true });
+
+        card.addEventListener('mouseup', handleTouchEnd);
+        card.addEventListener('touchend', handleTouchEnd);
+
         card.addEventListener('click', (e) => track(item.id, e));
 
         gridContainer.appendChild(card);
     });
 
-    // Append Add Button at the end
     gridContainer.appendChild(addBtn);
 }
 
 function showStats() {
-    const now = new Date();
-    currentDateEl.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+    // Update Date Display
+    currentDateEl.textContent = `${currentStatsDate.getFullYear()}年${currentStatsDate.getMonth() + 1}月${currentStatsDate.getDate()}日`;
 
     statsList.innerHTML = '';
 
@@ -179,15 +329,74 @@ function showStats() {
     }
 
     items.forEach(item => {
-        const count = getTodayCount(item.id);
+        const count = getCountForDate(item.id, currentStatsDate);
         const li = document.createElement('li');
         li.className = 'stats-item';
         li.innerHTML = `
             <span>${item.name}</span>
             <span class="stats-count">${count}回</span>
         `;
+        li.addEventListener('click', () => showTrend(item.id));
         statsList.appendChild(li);
     });
 
     statsModal.classList.remove('hidden');
+}
+
+function showTrend(itemId) {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    detailItemName.textContent = `${item.name} の推移`;
+    statsViewMain.classList.add('hidden');
+    statsViewDetail.classList.remove('hidden');
+
+    renderTrendChart(itemId);
+}
+
+function renderTrendChart(itemId) {
+    trendChart.innerHTML = '';
+    const days = 7;
+    const today = new Date();
+
+    let maxCount = 0;
+    const data = [];
+
+    // Calculate last 7 days including today
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const count = getCountForDate(itemId, d);
+        if (count > maxCount) maxCount = count;
+        data.push({ date: d, count: count });
+    }
+
+    // Render bars
+    data.forEach(d => {
+        const container = document.createElement('div');
+        container.className = 'chart-bar-container';
+
+        const heightPercent = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
+        // Min height 4px handled by CSS, but logical height is calculated here
+
+        // Date Label (e.g., "5")
+        const dateLabel = document.createElement('div');
+        dateLabel.className = 'chart-label';
+        dateLabel.textContent = d.date.getDate();
+
+        // Value Label
+        const valLabel = document.createElement('div');
+        valLabel.className = 'chart-value';
+        valLabel.textContent = d.count;
+
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = `${Math.max(heightPercent, 1)}%`; // Ensure at least a tiny bit visible
+
+        container.appendChild(valLabel);
+        container.appendChild(bar);
+        container.appendChild(dateLabel);
+
+        trendChart.appendChild(container);
+    });
 }

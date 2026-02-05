@@ -56,13 +56,53 @@
 
     <!-- Stats Modal -->
     <div id="stats-modal" class="modal hidden">
-        <div class="modal-content glass">
-            <h2>本日の記録</h2>
-            <p id="current-date" class="date-label">2026年X月X日</p>
-            <ul id="stats-list" class="stats-list">
-                <!-- Stats will be injected here -->
-            </ul>
+        <div class="modal-content glass" style="max-width: 400px;">
+            <h2>記録の統計</h2>
+
+            <!-- Date Navigation -->
+            <div class="date-nav">
+                <button id="prev-day" class="icon-btn-small">◀</button>
+                <p id="current-date" class="date-label">2026年X月X日</p>
+                <button id="next-day" class="icon-btn-small">▶</button>
+            </div>
+
+            <!-- Main Stats List -->
+            <div id="stats-view-main">
+                <ul id="stats-list" class="stats-list">
+                    <!-- Stats will be injected here -->
+                </ul>
+            </div>
+
+            <!-- Detail/Trend View (Hidden by default) -->
+            <div id="stats-view-detail" class="hidden">
+                <div class="detail-header">
+                    <button id="back-to-stats" class="text-btn-small">← 戻る</button>
+                    <h3 id="detail-item-name">項目名</h3>
+                </div>
+                <!-- Simple CSS Bar Chart -->
+                <div id="trend-chart" class="trend-chart">
+                    <!-- Bars will be injected here -->
+                </div>
+            </div>
+
             <button id="close-stats" class="text-btn">閉じる</button>
+        </div>
+    </div>
+
+    <!-- Edit Count Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-content glass">
+            <h2>回数の修正</h2>
+            <p id="edit-item-name" class="date-label">項目名</p>
+            <div class="counter-control">
+                <button id="decrease-count" class="circle-btn">-</button>
+                <span id="edit-count-value" class="count-display">0</span>
+                <button id="increase-count" class="circle-btn">+</button>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-edit" class="text-btn">キャンセル</button>
+                <button id="save-edit" class="primary-btn">保存</button>
+            </div>
         </div>
     </div>
 
