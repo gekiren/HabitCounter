@@ -7,6 +7,10 @@ let isLongPress = false;
 let editingItemId = null;
 let editingDate = null;
 
+// Trend View State
+let currentTrendItemId = null;
+let currentTrendEndDate = new Date();
+
 // DOM Elements
 const gridContainer = document.getElementById('grid-container');
 const addBtn = document.getElementById('add-btn');
@@ -28,6 +32,11 @@ const statsViewDetail = document.getElementById('stats-view-detail');
 const detailItemName = document.getElementById('detail-item-name');
 const trendChart = document.getElementById('trend-chart');
 const backToStatsBtn = document.getElementById('back-to-stats');
+// Trend Nav Elements
+const trendPrevBtn = document.getElementById('trend-prev');
+const trendNextBtn = document.getElementById('trend-next');
+const trendDateRangeEl = document.getElementById('trend-date-range');
+
 
 // Edit Modal Elements
 const editModal = document.getElementById('edit-modal');
@@ -113,6 +122,17 @@ function setupEventListeners() {
     backToStatsBtn.addEventListener('click', () => {
         statsViewDetail.classList.add('hidden');
         statsViewMain.classList.remove('hidden');
+    });
+
+    // Trend View Navigation
+    trendPrevBtn.addEventListener('click', () => {
+        currentTrendEndDate.setDate(currentTrendEndDate.getDate() - 7);
+        renderTrendChart(currentTrendItemId);
+    });
+
+    trendNextBtn.addEventListener('click', () => {
+        currentTrendEndDate.setDate(currentTrendEndDate.getDate() + 7);
+        renderTrendChart(currentTrendItemId);
     });
 
     // Edit Modal Buttons
@@ -223,25 +243,7 @@ function saveEditCount() {
             });
         }
     } else if (targetCount < currentCount) {
-        // Remove logs
-        let toRemove = currentCount - targetCount;
-        // Identify logs to remove (newest first for that day)
-        const sortedTodayLogs = todayLogs.sort((a, b) => b.timestamp - a.timestamp);
-
-        // Filter out the logs we want to keep
-        logs = logs.filter(log => {
-            // If log is one of the ones to remove, skip it
-            if (log.itemId === editingItemId && log.timestamp >= dayStart && log.timestamp < dayEnd) {
-                if (toRemove > 0) {
-                    // Check if this specific log instance is in our remove list
-                    // A simple way is to just keep N logs for this day
-                    return false; // This logic is tricky with filter. Re-approach:
-                }
-            }
-            return true;
-        });
-
-        // Easier approach: Remove ALL logs for that day, then add back `targetCount` logs
+        // Remove logs but keep others
         logs = logs.filter(log => !(log.itemId === editingItemId && log.timestamp >= dayStart && log.timestamp < dayEnd));
         for (let i = 0; i < targetCount; i++) {
             logs.push({
@@ -347,6 +349,9 @@ function showTrend(itemId) {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
+    currentTrendItemId = itemId;
+    currentTrendEndDate = new Date(); // Reset to today initially
+
     detailItemName.textContent = `${item.name} の推移`;
     statsViewMain.classList.add('hidden');
     statsViewDetail.classList.remove('hidden');
@@ -357,15 +362,20 @@ function showTrend(itemId) {
 function renderTrendChart(itemId) {
     trendChart.innerHTML = '';
     const days = 7;
-    const today = new Date();
+    const endDate = currentTrendEndDate;
+
+    // Update labels to show range
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - (days - 1));
+    trendDateRangeEl.textContent = `${startDate.getMonth() + 1}/${startDate.getDate()} - ${endDate.getMonth() + 1}/${endDate.getDate()}`;
 
     let maxCount = 0;
     const data = [];
 
-    // Calculate last 7 days including today
+    // Calculate last 7 days ending at endDate
     for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
+        const d = new Date(endDate);
+        d.setDate(endDate.getDate() - i);
         const count = getCountForDate(itemId, d);
         if (count > maxCount) maxCount = count;
         data.push({ date: d, count: count });
@@ -377,12 +387,11 @@ function renderTrendChart(itemId) {
         container.className = 'chart-bar-container';
 
         const heightPercent = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
-        // Min height 4px handled by CSS, but logical height is calculated here
 
-        // Date Label (e.g., "5")
+        // Date Label (e.g., "2/7")
         const dateLabel = document.createElement('div');
         dateLabel.className = 'chart-label';
-        dateLabel.textContent = d.date.getDate();
+        dateLabel.textContent = `${d.date.getMonth() + 1}/${d.date.getDate()}`;
 
         // Value Label
         const valLabel = document.createElement('div');
