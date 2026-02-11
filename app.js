@@ -46,6 +46,7 @@ const decreaseCountBtn = document.getElementById('decrease-count');
 const increaseCountBtn = document.getElementById('increase-count');
 const cancelEditBtn = document.getElementById('cancel-edit');
 const saveEditBtn = document.getElementById('save-edit');
+const deleteBtn = document.getElementById('delete-item');
 
 
 // Selected Color State
@@ -151,6 +152,7 @@ function setupEventListeners() {
     });
 
     saveEditBtn.addEventListener('click', saveEditCount);
+    deleteBtn.addEventListener('click', deleteItem);
 
     // Close modals on outside click
     window.addEventListener('click', (e) => {
@@ -258,6 +260,18 @@ function saveEditCount() {
     editModal.classList.add('hidden');
 }
 
+function deleteItem() {
+    if (!editingItemId) return;
+
+    if (confirm('この習慣とこれまでの記録をすべて削除しますか？\nこの操作は取り消せません。')) {
+        items = items.filter(item => item.id !== editingItemId);
+        logs = logs.filter(log => log.itemId !== editingItemId);
+        saveData();
+        render();
+        editModal.classList.add('hidden');
+    }
+}
+
 
 function createRipple(event) {
     const card = event.currentTarget;
@@ -290,6 +304,13 @@ function getCountForDate(itemId, date) {
 
 function render() {
     gridContainer.innerHTML = '';
+
+    // Dynamic Grid Sizing
+    if (items.length >= 7) {
+        gridContainer.classList.add('grid-3-cols');
+    } else {
+        gridContainer.classList.remove('grid-3-cols');
+    }
 
     items.forEach(item => {
         const card = document.createElement('div');

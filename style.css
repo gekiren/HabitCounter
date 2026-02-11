@@ -72,6 +72,11 @@ h1 {
     flex: 1;
 }
 
+.grid-container.grid-3-cols {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
 /* Card Styles */
 .habit-card,
 .add-card {
@@ -224,6 +229,11 @@ input:focus {
     padding: 10px 20px;
     font-size: 1rem;
     cursor: pointer;
+}
+
+.text-btn:active {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
 }
 
 .primary-btn {
